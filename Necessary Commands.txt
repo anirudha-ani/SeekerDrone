@@ -1,0 +1,8 @@
+# Running unreal engine on Ubuntu 
+
+1. Go to directory of UnrealEngine -
+cd Desktop/Code/H2R/UnrealEngine/ 
+
+2. Run it with following command -
+./Engine/Binaries/Linux/UE4Editor
+
