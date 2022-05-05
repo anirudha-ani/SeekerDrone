@@ -180,18 +180,7 @@ class RDQNAgent(object):
 '''
 Environment interaction
 '''
-def detect_image(image, classes, net):
-    Width = image.shape[1]
-    Height = image.shape[0]
-    scale = 0.00392
 
-    blob = cv2.dnn.blobFromImage(image, scale, (416,416), (0,0,0), True, crop=False)
-
-    net.setInput(blob)
-
-    outs = net.forward(get_output_layers(net))
-
-    return outs
     
 
 def interpret_action(action):
