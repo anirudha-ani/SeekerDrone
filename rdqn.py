@@ -25,7 +25,7 @@ import tensorflow as tf
 import keras.backend as K
 from keras.layers import TimeDistributed, BatchNormalization, Flatten, Lambda, Concatenate
 from keras.layers import Conv2D, MaxPooling2D, Dense, GRU, Input, ELU, Activation
-from keras.optimizers import Adam
+from tensorflow.keras.optimizers import Adam
 from keras.models import Model
 from PIL import Image
 import cv2
@@ -68,29 +68,29 @@ class RDQNAgent(object):
 
     def build_model(self):
         # image process
-        image = Input(shape=self.state_size)
-        image_process = BatchNormalization()(image)
-        image_process = TimeDistributed(Conv2D(32, (8, 8), activation='elu', padding='same', kernel_initializer='he_normal'))(image_process)
-        image_process = TimeDistributed(MaxPooling2D((2, 2)))(image_process)
-        image_process = TimeDistributed(Conv2D(32, (5, 5), activation='elu', kernel_initializer='he_normal'))(image_process)
-        image_process = TimeDistributed(MaxPooling2D((2, 2)))(image_process)
-        image_process = TimeDistributed(Conv2D(16, (3, 3), activation='elu', kernel_initializer='he_normal'))(image_process)
-        image_process = TimeDistributed(MaxPooling2D((2, 2)))(image_process)
-        image_process = TimeDistributed(Conv2D(8, (1, 1), activation='elu', kernel_initializer='he_normal'))(image_process)
-        image_process = TimeDistributed(Flatten())(image_process)
-        image_process = GRU(64, kernel_initializer='he_normal', use_bias=False)(image_process)
-        image_process = BatchNormalization()(image_process)
-        image_process = Activation('tanh')(image_process)
+        observe = Input(shape=self.state_size)
+        # image_process = BatchNormalization()(image)
+        # image_process = TimeDistributed(Conv2D(32, (8, 8), activation='elu', padding='same', kernel_initializer='he_normal'))(image_process)
+        # image_process = TimeDistributed(MaxPooling2D((2, 2)))(image_process)
+        # image_process = TimeDistributed(Conv2D(32, (5, 5), activation='elu', kernel_initializer='he_normal'))(image_process)
+        # image_process = TimeDistributed(MaxPooling2D((2, 2)))(image_process)
+        # image_process = TimeDistributed(Conv2D(16, (3, 3), activation='elu', kernel_initializer='he_normal'))(image_process)
+        # image_process = TimeDistributed(MaxPooling2D((2, 2)))(image_process)
+        # image_process = TimeDistributed(Conv2D(8, (1, 1), activation='elu', kernel_initializer='he_normal'))(image_process)
+        # image_process = TimeDistributed(Flatten())(image_process)
+        # image_process = GRU(64, kernel_initializer='he_normal', use_bias=False)(image_process)
+        # image_process = BatchNormalization()(image_process)
+        # image_process = Activation('tanh')(image_process)
         
         # vel process
-        vel = Input(shape=[self.vel_size])
+        # vel = Input(shape=[self.vel_size])
         # vel_process = Dense(6, kernel_initializer='he_normal', use_bias=False)(vel)
         # vel_process = BatchNormalization()(vel_process)
         # vel_process = Activation('tanh')(vel_process)
 
         # state process
         # state_process = Concatenate()([image_process, vel_process])
-        state_process = image_process
+        state_process = Flatten(observe)
 
         # Critic
         Qvalue = Dense(128, kernel_initializer='he_normal', use_bias=False)(state_process)
@@ -212,8 +212,8 @@ if __name__ == '__main__':
     parser.add_argument('--verbose',    action='store_true')
     parser.add_argument('--load_model', action='store_true')
     parser.add_argument('--play',       action='store_true')
-    parser.add_argument('--img_height', type=int,   default=72)
-    parser.add_argument('--img_width',  type=int,   default=128)
+    # parser.add_argument('--img_height', type=int,   default=72)
+    # parser.add_argument('--img_width',  type=int,   default=128)
     parser.add_argument('--lr',         type=float, default=1e-4)
     parser.add_argument('--gamma',      type=float, default=0.99)
     parser.add_argument('--seqsize',    type=int,   default=5)
@@ -237,7 +237,9 @@ if __name__ == '__main__':
         os.makedirs('save_model')
 
     # Make RL agent
-    state_size = [args.seqsize, args.img_height, args.img_width, 1]
+    # state_size = [args.seqsize, args.img_height, args.img_width, 1]
+    # size of outs
+    state_size = [args.seqsize, 3, 507, 85]
     action_size = 7
     agent = RDQNAgent(
         state_size=state_size,
@@ -341,14 +343,14 @@ if __name__ == '__main__':
                 train_num, loss = 0, 0.
 
                 observe = env.reset()
-                image, vel = observe
-                try:
-                    image = transform_input(image, args.img_height, args.img_width)
-                except:
-                    continue
-                history = np.stack([image] * args.seqsize, axis=1)
-                vel = vel.reshape(1, -1)
-                state = [history, vel]
+                # image, vel = observe
+                # try:
+                #     image = transform_input(image, args.img_height, args.img_width)
+                # except:
+                #     continue
+                state = np.stack([image] * args.seqsize, axis=1)
+                # vel = vel.reshape(1, -1)
+                # state = [history, vel]
                 while not done and timestep < time_limit:
                     timestep += 1
                     global_step += 1
@@ -366,17 +368,17 @@ if __name__ == '__main__':
                     action, policy, Qmax = agent.get_action(state)
                     real_action = interpret_action(action)
                     observe, reward, done, info = env.step(real_action)
-                    image, vel = observe
-                    try:
-                        if timestep < 3 and info['status'] == 'landed':
-                            raise Exception
-                        image = transform_input(image, args.img_height, args.img_width)
-                    except:
-                        bug = True
-                        break
-                    history = np.append(history[:, 1:], [image], axis=1)
-                    vel = vel.reshape(1, -1)
-                    next_state = [history, vel]
+                    # image, vel = observe
+                    # try:
+                    #     if timestep < 3 and info['status'] == 'landed':
+                    #         raise Exception
+                    #     image = transform_input(image, args.img_height, args.img_width)
+                    # except:
+                    #     bug = True
+                    #     break
+                    next_state = np.append(history[:, 1:], [observe], axis=1)
+                    # vel = vel.reshape(1, -1)
+                    # next_state = [history, vel]
                     agent.append_memory(state, action, reward, next_state, done)
 
                     # stats

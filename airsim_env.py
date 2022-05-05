@@ -23,6 +23,7 @@ class Env:
         self.net = cv2.dnn.readNet("yolov3.weights", "yolov3.cfg")
 
         self.goal = config.goal
+        self.init_pos = self.client.getMultirotorState().kinematics_estimated.position
 
     def reset(self):
         self.level = 0
@@ -36,10 +37,12 @@ class Env:
         self.client.moveByVelocityAsync(0, 0, 0, 0.1 * timeslice).join()
         self.client.hoverAsync().join()
         self.client.simPause(True)
-        quad_vel = self.client.getMultirotorState().kinematics_estimated.linear_velocity
-        responses = self.client.simGetImages([airsim.ImageRequest(1, airsim.ImageType.DepthVis, True)])
-        quad_vel = np.array([quad_vel.x_val, quad_vel.y_val, quad_vel.z_val])
-        observation = [responses, quad_vel]
+        # quad_vel = self.client.getMultirotorState().kinematics_estimated.linear_velocity
+        # responses = self.client.simGetImages([airsim.ImageRequest(1, airsim.ImageType.DepthVis, True)])
+        # quad_vel = np.array([quad_vel.x_val, quad_vel.y_val, quad_vel.z_val])
+        # observation = [responses, quad_vel]
+        observation = self.detect_image()
+
         return observation
 
     def step(self, quad_offset):
@@ -69,11 +72,10 @@ class Env:
         detected, num_goal = self.detected_obj(observation)
 
         # get quadrotor states
-        # quad_pos = self.client.getMultirotorState().kinematics_estimated.position
-        # quad_vel = self.client.getMultirotorState().kinematics_estimated.linear_velocity
+        quad_pos = self.client.getMultirotorState().kinematics_estimated.position
 
         # dead: too far from original point or collided #todo
-        dead = has_collided or quad_pos.y_val <= outY
+        dead = has_collided or (sum(map(lambda i : i * i, quad_pos-self.init_pos)) > config.rang)
         # done: dead or detect all objects
         done = dead or num_goal == len(config.goal)
 
@@ -99,8 +101,8 @@ class Env:
 
 
     def compute_reward(self, detected, num_goal, dead, done):
-        vel = np.array([quad_vel.x_val, quad_vel.y_val, quad_vel.z_val], dtype=np.float)
-        speed = np.linalg.norm(vel)
+        # vel = np.array([quad_vel.x_val, quad_vel.y_val, quad_vel.z_val], dtype=np.float)
+        # speed = np.linalg.norm(vel)
         if dead:
             reward = config.reward['dead']
         elif done:
