@@ -155,26 +155,7 @@ class RDQNAgent(object):
 Environment interaction
 '''
 
-    
 
-def interpret_action(action):
-    scaling_factor = 1.0
-    if action == 0:
-        quad_offset = (0, 0, 0)
-    elif action == 1:
-        quad_offset = (scaling_factor, 0, 0)
-    elif action == 2:
-        quad_offset = (0, scaling_factor, 0)
-    elif action == 3:
-        quad_offset = (0, 0, scaling_factor)
-    elif action == 4:
-        quad_offset = (-scaling_factor, 0, 0)    
-    elif action == 5:
-        quad_offset = (0, -scaling_factor, 0)
-    elif action == 6:
-        quad_offset = (0, 0, -scaling_factor)
-    
-    return quad_offset
 
 if __name__ == '__main__':
     # CUDA config
@@ -214,7 +195,7 @@ if __name__ == '__main__':
     # state_size = [args.seqsize, args.img_height, args.img_width, 1]
     # size of outs
     state_size = [args.seqsize, 21, 507, 85]
-    action_size = 7
+    action_size = 6
     agent = RDQNAgent(
         state_size=state_size,
         action_size=action_size,
@@ -254,8 +235,8 @@ if __name__ == '__main__':
                     Qs = agent.critic.predict(state)[0]
                     action = np.argmax(Qs)
                     Qmax = np.amax(Qs)
-                    real_action = interpret_action(action)
-                    observe, reward, done, info = env.step(real_action)
+                    # real_action = interpret_action(action)
+                    observe, reward, done, info = env.step(action)
                     image, vel = observe
                     try:
                         image = transform_input(image, args.img_height, args.img_width)
@@ -342,8 +323,8 @@ if __name__ == '__main__':
                         global_train_num = 0
 
                     action, policy, Qmax = agent.get_action(state)
-                    real_action = interpret_action(action)
-                    observe, reward, done, info = env.step(real_action)
+                    # real_action = interpret_action(action)
+                    observe, reward, done, info = env.step(action)
                     observe = np.concatenate(observe).reshape([1,21,507,85])
                     # image, vel = observe
                     # try:

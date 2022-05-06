@@ -46,13 +46,26 @@ class Env:
 
         return observation
 
-    def step(self, quad_offset):
+    def take_action(self, action):
+        if action == 0:#w
+            self.client.moveByVelocityBodyFrameAsync(1, 0, 0, 1).join()
+        elif action == 1:#a
+            self.client.rotateByYawRateAsync(-20,1).join()
+        elif action == 2:#s
+            self.client.moveByVelocityBodyFrameAsync(-1, 0, 0, 1).join()
+        elif action == 3:#d
+            self.client.rotateByYawRateAsync(20,1).join()
+        elif action == 4:#u
+            self.client.moveByVelocityBodyFrameAsync(0, 0, -1, 1).join()
+        elif action == 5:#j
+            self.client.moveByVelocityBodyFrameAsync(0, 0, 1, 1).join()
+
+    def step(self, action):
         # move with given velocity
-        quad_offset = [float(i) for i in quad_offset]
         self.client.simPause(False)
 
         has_collided = False
-        self.client.moveByVelocityAsync(quad_offset[0], quad_offset[1], quad_offset[2], timeslice)
+        self.take_action(action)
         start_time = time.time()
         while time.time() - start_time < timeslice:
             # get quadrotor states
