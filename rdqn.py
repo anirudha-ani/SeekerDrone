@@ -19,9 +19,11 @@ import random
 import argparse
 from copy import deepcopy
 from collections import deque
+from datetime import datetime
 from datetime import datetime as dt
 import numpy as np
 import tensorflow as tf
+import keras
 import keras.backend as K
 from keras.layers import TimeDistributed, BatchNormalization, Flatten, Lambda, Concatenate
 from keras.layers import Conv2D, MaxPooling2D, Dense, GRU, Input, ELU, Activation
@@ -33,6 +35,8 @@ from airsim_env import Env#, ACTION
 
 np.set_printoptions(suppress=True, precision=4)
 agent_name = 'rdqn'
+logdir = "logs/" + datetime.now().strftime("%Y%m%d-%H%M%S")
+tensorboard_callback = keras.callbacks.TensorBoard(log_dir=logdir)
 
 
 class RDQNAgent(object):
@@ -104,7 +108,7 @@ class RDQNAgent(object):
 
 
     def get_action(self, state):
-        Qs = self.critic.predict(state)[0]
+        Qs = self.critic.predict(state, callbacks=[tensorboard_callback])[0]
         Qmax = np.amax(Qs)
         if np.random.random() < self.epsilon:
             return np.random.choice(self.action_size), np.argmax(Qs), Qmax

@@ -174,8 +174,10 @@ class Env:
 
         indices = cv2.dnn.NMSBoxes(boxes, confidences, conf_threshold, nms_threshold)
         detected = []
+        log = []
         for i in indices:
             detected.append(class_ids[i])
+            print(str(self.classes[class_ids[i]]))
 
         num_goal = sum(1 for x, y in zip(detected, config.goal) if x == y)
 

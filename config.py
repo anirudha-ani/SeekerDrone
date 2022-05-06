@@ -4,4 +4,4 @@ reward = {
 }
 
 goal = [14,16] # 16:dog, 14:bird, 17:hourse just for testing
-rang = 1000
+rang = 300
