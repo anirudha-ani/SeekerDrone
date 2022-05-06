@@ -1,6 +1,7 @@
 import time
 import numpy as np
 import airsim
+import os
 import config
 import cv2
 
@@ -18,7 +19,7 @@ class Env:
         self.client = airsim.MultirotorClient()
         self.client.confirmConnection()
 
-        with open(args.classes, 'r') as f:
+        with open("yolov3.txt", 'r') as f:
             self.classes = [line.strip() for line in f.readlines()]
         self.net = cv2.dnn.readNet("yolov3.weights", "yolov3.cfg")
 
@@ -41,7 +42,7 @@ class Env:
         # responses = self.client.simGetImages([airsim.ImageRequest(1, airsim.ImageType.DepthVis, True)])
         # quad_vel = np.array([quad_vel.x_val, quad_vel.y_val, quad_vel.z_val])
         # observation = [responses, quad_vel]
-        observation = self.detect_image()
+        observation, Width, Height = self.detect_image()
 
         return observation
 
@@ -61,15 +62,15 @@ class Env:
             # decide whether collision occured
             collided = self.client.simGetCollisionInfo().has_collided
 
-            if collision:
+            if collided:
                 has_collided = True
                 break
         self.client.simPause(True)
 
         # observe with depth camera
         # responses = self.client.simGetImages([airsim.ImageRequest(1, airsim.ImageType.DepthVis, True)])
-        observation = self.detect_image()
-        detected, num_goal = self.detected_obj(observation)
+        observation, Width, Height = self.detect_image()
+        detected, num_goal = self.detected_obj(observation, Width, Height)
 
         # get quadrotor states
         quad_pos = self.client.getMultirotorState().kinematics_estimated.position
@@ -84,16 +85,10 @@ class Env:
 
         # log info
         info = {}
-        if landed:
-            info['status'] = 'landed'
-        elif has_collided:
+
+        if has_collided:
             info['status'] = 'collision'
-        elif quad_pos.y_val <= outY:
-            info['status'] = 'out'
-        elif quad_pos.y_val >= goalY:
-            info['status'] = 'goal'
-        else:
-            info['status'] = 'going'
+        
 
         # quad_vel = np.array([quad_vel.x_val, quad_vel.y_val, quad_vel.z_val])
         # observation = [responses, quad_vel]
@@ -116,12 +111,17 @@ class Env:
 
     def detect_image(self):
         responses = self.client.simGetImages([
-            airsim.ImageRequest("0", airsim.ImageType.DepthVis),
-            airsim.ImageRequest("0", airsim.ImageType.DepthPlanar, True),
-            airsim.ImageRequest("0", airsim.ImageType.DepthPerspective),
-            airsim.ImageRequest("0", airsim.ImageType.Scene),
-            airsim.ImageRequest("0", airsim.ImageType.Infrared)])
-        image = responses[3].image_data_uint8
+            airsim.ImageRequest("0", airsim.ImageType.Scene)])
+
+        response = responses[0]
+        # image = np.fromstring(response.image_data_uint8, dtype=np.uint8)
+        # img_rgb = image.reshape(response.height, response.width, 3)
+        # image = np.flipud(img_rgb)
+        # cv2.imshow("object detection", image)
+        # cv2.waitKey()
+
+        airsim.write_file(os.path.normpath('tmp.png'), response.image_data_uint8)
+        image = cv2.imread("tmp.png")
 
         Width = image.shape[1]
         Height = image.shape[0]
@@ -130,12 +130,12 @@ class Env:
         blob = cv2.dnn.blobFromImage(image, scale, (416,416), (0,0,0), True, crop=False)
 
         self.net.setInput(blob)
+        layer_names = self.net.getLayerNames()
+        outs = self.net.forward([layer_names[i - 1] for i in self.net.getUnconnectedOutLayers()])
 
-        outs = net.forward(get_output_layers(net))
+        return outs, Width, Height
 
-        return outs
-
-    def detected_obj(self, observation):
+    def detected_obj(self, observation, Width, Height):
         class_ids = []
         confidences = []
         boxes = []

@@ -29,7 +29,7 @@ from tensorflow.keras.optimizers import Adam
 from keras.models import Model
 from PIL import Image
 import cv2
-from airsim_env import Env, ACTION
+from airsim_env import Env#, ACTION
 
 np.set_printoptions(suppress=True, precision=4)
 agent_name = 'rdqn'
@@ -43,7 +43,7 @@ class RDQNAgent(object):
         self.state_size = state_size
         self.vel_size = 3
         self.action_size = action_size
-        self.lr = lr
+        self.optimizer = Adam(lr=lr)
         self.gamma = gamma
         self.batch_size = batch_size
         self.memory_size = memory_size
@@ -52,13 +52,14 @@ class RDQNAgent(object):
         self.decay_step = decay_step
         self.epsilon_decay = (epsilon - epsilon_end) / decay_step
 
-        self.sess = tf.Session()
-        K.set_session(self.sess)
+        # self.sess = tf.Session()
+        # self.sess = tf.compat.v1.Session()
+        # K.set_session(self.sess)
 
         self.critic = self.build_model()
         self.target_critic = self.build_model()
-        self.critic_update = self.build_critic_optimizer()
-        self.sess.run(tf.global_variables_initializer())
+        # self.critic_update = self.build_critic_optimizer()
+        # self.sess.run(tf.global_variables_initializer())
         if load_model:
             self.load_model('./save_model/'+ agent_name)
         
@@ -69,28 +70,7 @@ class RDQNAgent(object):
     def build_model(self):
         # image process
         observe = Input(shape=self.state_size)
-        # image_process = BatchNormalization()(image)
-        # image_process = TimeDistributed(Conv2D(32, (8, 8), activation='elu', padding='same', kernel_initializer='he_normal'))(image_process)
-        # image_process = TimeDistributed(MaxPooling2D((2, 2)))(image_process)
-        # image_process = TimeDistributed(Conv2D(32, (5, 5), activation='elu', kernel_initializer='he_normal'))(image_process)
-        # image_process = TimeDistributed(MaxPooling2D((2, 2)))(image_process)
-        # image_process = TimeDistributed(Conv2D(16, (3, 3), activation='elu', kernel_initializer='he_normal'))(image_process)
-        # image_process = TimeDistributed(MaxPooling2D((2, 2)))(image_process)
-        # image_process = TimeDistributed(Conv2D(8, (1, 1), activation='elu', kernel_initializer='he_normal'))(image_process)
-        # image_process = TimeDistributed(Flatten())(image_process)
-        # image_process = GRU(64, kernel_initializer='he_normal', use_bias=False)(image_process)
-        # image_process = BatchNormalization()(image_process)
-        # image_process = Activation('tanh')(image_process)
-        
-        # vel process
-        # vel = Input(shape=[self.vel_size])
-        # vel_process = Dense(6, kernel_initializer='he_normal', use_bias=False)(vel)
-        # vel_process = BatchNormalization()(vel_process)
-        # vel_process = Activation('tanh')(vel_process)
-
-        # state process
-        # state_process = Concatenate()([image_process, vel_process])
-        state_process = Flatten(observe)
+        state_process = Flatten()(observe)
 
         # Critic
         Qvalue = Dense(128, kernel_initializer='he_normal', use_bias=False)(state_process)
@@ -100,34 +80,28 @@ class RDQNAgent(object):
         Qvalue = BatchNormalization()(Qvalue)
         Qvalue = ELU()(Qvalue)
         Qvalue = Dense(self.action_size, kernel_initializer=tf.random_uniform_initializer(minval=-3e-3, maxval=3e-3))(Qvalue)
-        critic = Model(inputs=[image, vel], outputs=Qvalue)
+        critic = Model(inputs=[observe], outputs=Qvalue)
 
-        critic._make_predict_function()
+        critic.make_predict_function()
         
         return critic
 
-    def build_critic_optimizer(self):
-        action = K.placeholder(shape=(None, ), dtype='int32')
-        y = K.placeholder(shape=(None, ), dtype='float32')
-        pred = self.critic.output
-        
-        # loss = K.mean(K.square(pred - y))
-        # Huber Loss
-        action_vec = K.one_hot(action, self.action_size)
-        Q = K.sum(pred * action_vec, axis=1)
-        error = K.abs(y - Q)
-        quadratic = K.clip(error, 0.0, 1.0)
-        linear = error - quadratic
-        loss = K.mean(0.5 * K.square(quadratic) + linear)
 
-        optimizer = Adam(lr=self.lr)
-        updates = optimizer.get_updates(self.critic.trainable_weights, [], loss)
-        train = K.function(
-            [self.critic.input[0], self.critic.input[1], action, y],
-            [loss],
-            updates=updates
-        )
-        return train
+    def train_method(self, states, actions, targets):
+        with tf.GradientTape() as tape:
+            pred = self.critic.output
+            action_vec = tf.one_hot(action, self.action_size)
+            Q = tf.sum(pred * action_vec, axis=1)
+            error = tf.abs(y - Q)
+            quadratic = tf.clip(error, 0.0, 1.0)
+            linear = error - quadratic
+            loss = tf.mean(0.5 * tf.square(quadratic) + linear)
+
+        grads = tape.gradient(loss, params=self.actor.trainable_variables)
+        self.optimizer_actor.apply_gradients(zip(grads, self.critic.trainable_variables))
+
+        return loss
+
 
     def get_action(self, state):
         Qs = self.critic.predict(state)[0]
@@ -140,7 +114,7 @@ class RDQNAgent(object):
         batch = random.sample(self.memory, self.batch_size)
 
         images = np.zeros([self.batch_size] + self.state_size)
-        vels = np.zeros([self.batch_size, self.vel_size])
+        # vels = np.zeros([self.batch_size, self.vel_size])
         actions = np.zeros((self.batch_size))
         rewards = np.zeros((self.batch_size))
         next_images = np.zeros([self.batch_size] + self.state_size)
@@ -150,17 +124,17 @@ class RDQNAgent(object):
         targets = np.zeros((self.batch_size, 1))
         
         for i, sample in enumerate(batch):
-            images[i], vels[i] = sample[0]
+            images[i] = sample[0]
             actions[i] = sample[1]
             rewards[i] = sample[2]
-            next_images[i], next_vels[i] = sample[3]
+            next_images[i] = sample[3]
             dones[i] = sample[4]
-        states = [images, vels]
-        next_states = [next_images, next_vels]
+        states = [images]
+        next_states = [next_images]
         target_next_Qs = self.target_critic.predict(next_states)
         targets = rewards + self.gamma * (1 - dones) * np.amax(target_next_Qs, axis=1)
-        critic_loss = self.critic_update(states + [actions, targets])
-        return critic_loss[0]
+        critic_loss = self.train_method(states, actions, targets)
+        return critic_loss
 
     def append_memory(self, state, action, reward, next_state, done):        
         self.memory.append((state, action, reward, next_state, done))
@@ -218,7 +192,7 @@ if __name__ == '__main__':
     parser.add_argument('--gamma',      type=float, default=0.99)
     parser.add_argument('--seqsize',    type=int,   default=5)
     parser.add_argument('--epoch',      type=int,   default=1)
-    parser.add_argument('--batch_size', type=int,   default=32)
+    parser.add_argument('--batch_size', type=int,   default=8)
     parser.add_argument('--memory_size',type=int,   default=50000)
     parser.add_argument('--train_start',type=int,   default=3000)
     parser.add_argument('--train_rate', type=int,   default=5)
@@ -239,7 +213,7 @@ if __name__ == '__main__':
     # Make RL agent
     # state_size = [args.seqsize, args.img_height, args.img_width, 1]
     # size of outs
-    state_size = [args.seqsize, 3, 507, 85]
+    state_size = [args.seqsize, 21, 507, 85]
     action_size = 7
     agent = RDQNAgent(
         state_size=state_size,
@@ -348,9 +322,11 @@ if __name__ == '__main__':
                 #     image = transform_input(image, args.img_height, args.img_width)
                 # except:
                 #     continue
-                state = np.stack([image] * args.seqsize, axis=1)
+                observe = np.concatenate(observe).reshape([1,21,507,85])
+
+                history = np.stack([observe] * args.seqsize, axis=1)
                 # vel = vel.reshape(1, -1)
-                # state = [history, vel]
+                state = [history]
                 while not done and timestep < time_limit:
                     timestep += 1
                     global_step += 1
@@ -368,6 +344,7 @@ if __name__ == '__main__':
                     action, policy, Qmax = agent.get_action(state)
                     real_action = interpret_action(action)
                     observe, reward, done, info = env.step(real_action)
+                    observe = np.concatenate(observe).reshape([1,21,507,85])
                     # image, vel = observe
                     # try:
                     #     if timestep < 3 and info['status'] == 'landed':
@@ -376,18 +353,18 @@ if __name__ == '__main__':
                     # except:
                     #     bug = True
                     #     break
-                    next_state = np.append(history[:, 1:], [observe], axis=1)
+                    history = np.append(history[:, 1:], [observe], axis=1)
                     # vel = vel.reshape(1, -1)
-                    # next_state = [history, vel]
+                    next_state = [history]
                     agent.append_memory(state, action, reward, next_state, done)
 
                     # stats
                     avgQ += float(Qmax)
                     score += reward
-                    if info['Y'] > bestY:
-                        bestY = info['Y']
+                    # if info['Y'] > bestY:
+                    #     bestY = info['Y']
 
-                    print('%s | %s' % (ACTION[action], ACTION[policy]), end='\r', flush=True)
+                    # print('%s | %s' % (ACTION[action], ACTION[policy]), end='\r', flush=True)
 
 
                     if args.verbose:
@@ -405,23 +382,24 @@ if __name__ == '__main__':
                 avgQ /= timestep
 
                 # done
-                if args.verbose or episode % 10 == 0:
-                    print('Ep %d: BestY %.3f Step %d Score %.2f AvgQ %.2f'
-                            % (episode, bestY, timestep, score, avgQ))
-                stats = [
-                    episode, timestep, score, bestY, \
-                    loss, info['level'], avgQ, info['status']
-                ]
-                # log stats
-                with open('save_stat/'+ agent_name + '_stat.csv', 'a', encoding='utf-8', newline='') as f:
-                    wr = csv.writer(f)
-                    wr.writerow(['%.4f' % s if type(s) is float else s for s in stats])
-                if highscoreY < bestY:
-                    highscoreY = bestY
-                    with open('save_stat/'+ agent_name + '_highscore.csv', 'w', encoding='utf-8', newline='') as f:
-                        wr = csv.writer(f)
-                        wr.writerow('%.4f' % s if type(s) is float else s for s in [highscoreY, episode, score, dt.now().strftime('%Y-%m-%d %H:%M:%S')])
-                    agent.save_model('./save_model/'+ agent_name + '_best')
+                # if args.verbose or episode % 10 == 0:
+                #     # print('Ep %d: BestY %.3f Step %d Score %.2f AvgQ %.2f'
+                #     #         % (episode, bestY, timestep, score, avgQ))
+                # stats = [
+                #     episode, timestep, score, bestY, \
+                #     loss, info['level'], avgQ, info['status']
+                # ]
+                # # log stats
+                # with open('save_stat/'+ agent_name + '_stat.csv', 'a', encoding='utf-8', newline='') as f:
+                #     wr = csv.writer(f)
+                #     wr.writerow(['%.4f' % s if type(s) is float else s for s in stats])
+                # if highscoreY < bestY:
+                #     highscoreY = bestY
+                #     with open('save_stat/'+ agent_name + '_highscore.csv', 'w', encoding='utf-8', newline='') as f:
+                #         wr = csv.writer(f)
+                #         wr.writerow('%.4f' % s if type(s) is float else s for s in [highscoreY, episode, score, dt.now().strftime('%Y-%m-%d %H:%M:%S')])
+                #     agent.save_model('./save_model/'+ agent_name + '_best')
+                print(episode, score, avgQ, loss)
                 agent.save_model('./save_model/'+ agent_name)
                 episode += 1
             except KeyboardInterrupt:
