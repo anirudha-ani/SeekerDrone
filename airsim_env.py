@@ -142,9 +142,13 @@ class Env:
 
         blob = cv2.dnn.blobFromImage(image, scale, (416,416), (0,0,0), True, crop=False)
 
+        # net = cv2.dnn.readNet("yolov3.weights", "yolov3.cfg")
         self.net.setInput(blob)
         layer_names = self.net.getLayerNames()
         outs = self.net.forward([layer_names[i - 1] for i in self.net.getUnconnectedOutLayers()])
+        # net.setInput(blob)
+        # layer_names = net.getLayerNames()
+        # outs = net.forward([layer_names[i - 1] for i in net.getUnconnectedOutLayers()])
 
         return outs, Width, Height
 
