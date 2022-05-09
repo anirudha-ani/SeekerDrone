@@ -129,86 +129,6 @@ class Env:
         # observation = [responses, quad_vel]
         # return observation, reward, done, info
         return state.flatten(), reward, done, info
-
-
-    def compute_reward(self, detected, num_goal, dead, done):
-        # vel = np.array([quad_vel.x_val, quad_vel.y_val, quad_vel.z_val], dtype=np.float)
-        # speed = np.linalg.norm(vel)
-        if dead:
-            reward = config.reward['dead']
-        elif done:
-            reward = config.reward['goal']
-        elif num_goal > 0:
-            reward = config.reward['goal']* (num_goal/len(config.goal))
-        else:
-            reward = 0
-
-        return reward
-
-    def detect_image(self):
-        responses = self.client.simGetImages([
-            airsim.ImageRequest("0", airsim.ImageType.Scene)])
-
-        response = responses[0]
-        # image = np.fromstring(response.image_data_uint8, dtype=np.uint8)
-        # img_rgb = image.reshape(response.height, response.width, 3)
-        # image = np.flipud(img_rgb)
-        # cv2.imshow("object detection", image)
-        # cv2.waitKey()
-
-        airsim.write_file(os.path.normpath('tmp.png'), response.image_data_uint8)
-        image = cv2.imread("tmp.png")
-
-        Width = image.shape[1]
-        Height = image.shape[0]
-        scale = 0.00392
-
-        blob = cv2.dnn.blobFromImage(image, scale, (416,416), (0,0,0), True, crop=False)
-
-        # net = cv2.dnn.readNet("yolov3.weights", "yolov3.cfg")
-        self.net.setInput(blob)
-        layer_names = self.net.getLayerNames()
-        outs = self.net.forward([layer_names[i - 1] for i in self.net.getUnconnectedOutLayers()])
-        # net.setInput(blob)
-        # layer_names = net.getLayerNames()
-        # outs = net.forward([layer_names[i - 1] for i in net.getUnconnectedOutLayers()])
-
-        return outs, Width, Height
-
-    def detected_obj(self, observation, Width, Height):
-        class_ids = []
-        confidences = []
-        boxes = []
-        conf_threshold = 0.5
-        nms_threshold = 0.4
-
-        for out in observation:
-            for detection in out:
-                scores = detection[5:]
-                class_id = np.argmax(scores)
-                confidence = scores[class_id]
-                if confidence > 0.5:
-                    center_x = int(detection[0] * Width)
-                    center_y = int(detection[1] * Height)
-                    w = int(detection[2] * Width)
-                    h = int(detection[3] * Height)
-                    x = center_x - w / 2
-                    y = center_y - h / 2
-                    class_ids.append(class_id)
-                    confidences.append(float(confidence))
-                    boxes.append([x, y, w, h])
-
-
-        indices = cv2.dnn.NMSBoxes(boxes, confidences, conf_threshold, nms_threshold)
-        detected = []
-        log = []
-        for i in indices:
-            detected.append(class_ids[i])
-            print(str(self.classes[class_ids[i]]))
-
-        num_goal = sum(1 for x, y in zip(detected, config.goal) if x == y)
-
-        return detected, num_goal
         
     def disconnect(self):
         self.client.enableApiControl(False)
@@ -312,7 +232,7 @@ class Env:
         for element in state:
             if element[5] > conf_threshold:
                 if element[0] == 5:
-                    reward += 100
+                    reward += 1000 * (element[3] * element[4])*.001
                 elif element[0] != 0:
-                    reward += 1
+                    reward += 1 * (element[3] * element[4])*.001
         return reward

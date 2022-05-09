@@ -31,11 +31,13 @@ class ReinforceWithBaseline(tf.keras.Model):
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.learning_rate)
         
         #actor network 
-        self.linear1_actor = tf.keras.layers.Dense(128, activation=tf.nn.relu)
+        # self.linear1_actor = tf.keras.layers.Dense(128, activation=tf.nn.relu, kernel_initializer=tf.keras.initializers.RandomNormal(stddev=0.01), bias_initializer=tf.keras.initializers.Zeros())
+        self.linear1_actor = tf.keras.layers.Dense(128, activation=tf.nn.relu, kernel_initializer=tf.keras.initializers.RandomNormal(stddev=0.01), bias_initializer=tf.keras.initializers.Zeros())
         self.linear2_actor = tf.keras.layers.Dense(num_actions, activation='softmax')
         
         #critic network
-        self.linear1_critic = tf.keras.layers.Dense(128, activation=tf.nn.relu)
+        # self.linear1_actor = tf.keras.layers.Dense(128, activation=tf.nn.relu, kernel_initializer=tf.keras.initializers.RandomNormal(stddev=0.01), bias_initializer=tf.keras.initializers.Zeros())
+        self.linear1_critic = tf.keras.layers.Dense(128, activation=tf.nn.relu, kernel_initializer=tf.keras.initializers.RandomNormal(stddev=0.01), bias_initializer=tf.keras.initializers.Zeros())
         self.linear2_critic = tf.keras.layers.Dense(1)
 
     def call(self, states):

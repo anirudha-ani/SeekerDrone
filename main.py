@@ -94,15 +94,17 @@ def generate_trajectory(env, model):
     rewards = []
     state = env.reset()
     done = False
-
-    while not done:
+    step_count = 0
+    while not done and step_count<10:
         # TODO:
         # 1) use model to generate probability distribution over next actions
         # 2) sample from this distribution to pick the next action
 
         #Getting the probability distribution of action given state
         probaibility_distribution_of_action_over_states = model.call(np.expand_dims(state, axis=0))
+        print("Prob dist over action = ", probaibility_distribution_of_action_over_states)
         action = np.random.choice(model.num_actions, p=np.squeeze(probaibility_distribution_of_action_over_states, axis=0))
+        print("Action = ", action)
 
         states.append(state)
         actions.append(action)
@@ -110,6 +112,7 @@ def generate_trajectory(env, model):
         print("State = ", np.reshape(state,(4,6)))
         print("Reward = ", rwd)
         rewards.append(rwd)
+        step_count += 1
 
     return states, actions, rewards
 
