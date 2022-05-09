@@ -5,6 +5,7 @@ from pylab import *
 import numpy as np
 import tensorflow as tf
 from reinforce_with_baseline import ReinforceWithBaseline
+from airsim_env_ani import Env
 
 def visualize_episode(env, model):
     """
@@ -106,6 +107,8 @@ def generate_trajectory(env, model):
         states.append(state)
         actions.append(action)
         state, rwd, done, _ = env.step(action)
+        print("State = ", np.reshape(state,(4,6)))
+        print("Reward = ", rwd)
         rewards.append(rwd)
 
     return states, actions, rewards
@@ -144,20 +147,22 @@ def train(env, model):
 
 
 def main():
-    if len(sys.argv) != 2 or sys.argv[1] not in {"REINFORCE", "REINFORCE_BASELINE"}:
-        print("USAGE: python assignment.py <Model Type>")
-        print("<Model Type>: [REINFORCE/REINFORCE_BASELINE]")
-        exit()
+    # if len(sys.argv) != 2 or sys.argv[1] not in {"REINFORCE", "REINFORCE_BASELINE"}:
+    #     print("USAGE: python assignment.py <Model Type>")
+    #     print("<Model Type>: [REINFORCE/REINFORCE_BASELINE]")
+    #     exit()
 
-    env = gym.make("CartPole-v1")
-    state_size = env.observation_space.shape[0]
-    num_actions = env.action_space.n
+    # env = gym.make("CartPole-v1")
+    env = Env()
+    state_size = 24
+    num_actions = 4
 
     # Initialize model
-    if sys.argv[1] == "REINFORCE":
-        model = Reinforce(state_size, num_actions)
-    elif sys.argv[1] == "REINFORCE_BASELINE":
-        model = ReinforceWithBaseline(state_size, num_actions)
+    # if sys.argv[1] == "REINFORCE":
+    #     print("X")
+    #     # model = Reinforce(state_size, num_actions)
+    # elif sys.argv[1] == "REINFORCE_BASELINE":
+    model = ReinforceWithBaseline(state_size, num_actions)
 
     # TODO:
     # 1) Train your model for 650 episodes, passing in the environment and the agent.
@@ -168,7 +173,7 @@ def main():
     for episode in range(no_of_episode):
         reward = train(env, model)
         total_reward.append(reward)
-        # print("reward in episode ", episode, " = " , reward)
+        print("reward in episode ", episode, " = " , reward) 
     
     average_of_last_50 = sum(total_reward[-50:]) / 50 
 
