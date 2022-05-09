@@ -41,7 +41,6 @@ class RDQNAgent(tf.keras.Model):
                 epsilon, epsilon_end, decay_step, load_model):
         super(RDQNAgent, self).__init__()
         self.state_size = state_size
-        # self.vel_size = 3
         self.action_size = action_size
         self.optimizer = Adam(learning_rate=lr)
         self.gamma = gamma
@@ -52,25 +51,22 @@ class RDQNAgent(tf.keras.Model):
         self.decay_step = decay_step
         self.epsilon_decay = (epsilon - epsilon_end) / decay_step
 
-        self.critic1 = Dense(128, kernel_initializer='he_normal', use_bias=False)
+        self.critic1 = Dense(128, kernel_initializer='he_normal', use_bias=False, input_shape=[24,])
         self.critic2 = Dense(128, kernel_initializer='he_normal', use_bias=False)
         self.critic3 = Dense(self.action_size, kernel_initializer=tf.random_uniform_initializer(minval=-3e-3, maxval=3e-3))
         self.norm1 = BatchNormalization()
         self.norm2 = BatchNormalization()
         self.elu1 = ELU()
         self.elu2 = ELU()
-        self.flat = Flatten(input_shape=[904995])
         
 
         self.memory = deque(maxlen=self.memory_size)
 
     @tf.function
     def call(self, state):
-        state_process = self.flat(state)
-        state_process = tf.reshape(state_process, [-1,904995])
-
+        state = tf.reshape(state, [-1, 352])
         # Critic
-        Qvalue = self.critic1(state_process)
+        Qvalue = self.critic1(state)
         Qvalue = self.norm1(Qvalue)
         Qvalue = self.elu1(Qvalue)
         Qvalue = self.critic2(Qvalue)
@@ -90,10 +86,10 @@ class RDQNAgent(tf.keras.Model):
         loss = tf.reduce_mean(0.5 * tf.math.square(quadratic) + linear)
         return loss
 
-    def get_action(self, state):
-        Qs = self.call(state)
+    def get_action(self, state, train):
+        Qs = self.call(state.reshape(1,-1))
         Qmax = np.amax(Qs)
-        if np.random.random() < self.epsilon:
+        if train and np.random.random() < self.epsilon:
             return np.random.choice(self.action_size), np.argmax(Qs), Qmax
         return np.argmax(Qs), np.argmax(Qs), Qmax
 
@@ -107,11 +103,9 @@ def train_model(agent, agent_target):
     batch = random.sample(agent.memory, agent.batch_size)
 
     images = np.zeros([agent.batch_size] + agent.state_size)
-            # vels = np.zeros([self.batch_size, self.vel_size])
     actions = np.zeros((agent.batch_size))
     rewards = np.zeros((agent.batch_size))
     next_images = np.zeros([agent.batch_size] + agent.state_size)
-            # next_vels = np.zeros([self.batch_size, self.vel_size])
     dones = np.zeros((agent.batch_size))
 
     targets = np.zeros((agent.batch_size, 1))
@@ -141,9 +135,11 @@ def update_target_model(agent, agent_target):
         
 def load_model(name):
     model = None
-    if os.path.exists(name + '.h5'):
-        model = keras.models.load_model(name + '.h5')
+    if os.path.exists(name):
+        model = keras.models.load_model(name)
         print('Model loaded')
+    else:
+        print("loaded failed")
     return model
 
 def save_model(agent, name):
@@ -168,16 +164,14 @@ if __name__ == '__main__':
     parser.add_argument('--verbose',    action='store_true')
     parser.add_argument('--load_model', action='store_true')
     parser.add_argument('--play',       action='store_true')
-    # parser.add_argument('--img_height', type=int,   default=72)
-    # parser.add_argument('--img_width',  type=int,   default=128)
     parser.add_argument('--lr',         type=float, default=1e-4)
     parser.add_argument('--gamma',      type=float, default=0.99)
-    parser.add_argument('--seqsize',    type=int,   default=1)
+    parser.add_argument('--seqsize',    type=int,   default=8)
     parser.add_argument('--epoch',      type=int,   default=1)
     parser.add_argument('--batch_size', type=int,   default=8)
     parser.add_argument('--memory_size',type=int,   default=50000)
-    # parser.add_argument('--train_start',type=int,   default=30)
-    parser.add_argument('--train_start',type=int,   default=3000)
+    # parser.add_argument('--train_start',type=int,   default=600)
+    parser.add_argument('--train_start',type=int,   default=50)
     parser.add_argument('--train_rate', type=int,   default=5)
     parser.add_argument('--target_rate',type=int,   default=1000)
     parser.add_argument('--epsilon',    type=float, default=1)
@@ -196,9 +190,9 @@ if __name__ == '__main__':
     # Make RL agent
     # state_size = [args.seqsize, args.img_height, args.img_width, 1]
     # size of outs
-    # state_size = [args.seqsize, 21, 507, 85]
-    state_size = [904995,]
-    action_size = 6
+    state_size = [args.seqsize, 44]
+    # state_size = [24]
+    action_size = 3
     agent = RDQNAgent(
         state_size=state_size,
         action_size=action_size,
@@ -212,7 +206,7 @@ if __name__ == '__main__':
         load_model=args.load_model
     )
 
-    agent.compute_output_shape(input_shape=(None, 904995))
+    agent.compute_output_shape(input_shape=(None, args.seqsize, 44))
     agent_target = RDQNAgent(
         state_size=state_size,
         action_size=action_size,
@@ -225,8 +219,12 @@ if __name__ == '__main__':
         decay_step=args.decay_step,
         load_model=args.load_model
     )
-    agent_target.compute_output_shape(input_shape=(None, 904995))
+    agent_target.compute_output_shape(input_shape=(None, args.seqsize, 44))
+
+    if args.load_model:
+        load_model('./save_model/'+ agent_name)
     update_target_model(agent, agent_target)
+
 
     episode = 0
     env = Env()
@@ -234,6 +232,12 @@ if __name__ == '__main__':
     if args.play:
         while True:
             try:
+                goal = np.zeros([4,6])
+                goal[0][1] = 1
+                goal[1][2] = 1
+                goal[1][3] = 1
+                goal[2][2] = 1  #2 behind
+                goal[3][3] = 1  #3 right
                 done = False
                 bug = False
 
@@ -241,36 +245,24 @@ if __name__ == '__main__':
                 bestY, timestep, score, avgQ = 0., 0, 0., 0.
 
                 observe = env.reset()
-                image, vel = observe
-                try:
-                    image = transform_input(image, args.img_height, args.img_width)
-                except:
-                    continue
-                history = np.stack([image] * args.seqsize, axis=1)
-                vel = vel.reshape(1, -1)
-                state = [history, vel]
+                state = np.append(goal, observe, 1)
+                state = np.reshape(state, [-1])
+                history = np.tile(state,[args.seqsize,1,1])
+                state = history
+                
                 while not done:
                     timestep += 1
-                    Qs = agent.critic.predict(state)[0]
-                    action = np.argmax(Qs)
-                    Qmax = np.amax(Qs)
-                    # real_action = interpret_action(action)
-                    observe, reward, done, info = env.step(action)
-                    image, vel = observe
-                    try:
-                        image = transform_input(image, args.img_height, args.img_width)
-                    except:
-                        bug = True
-                        break
-                    history = np.append(history[:, 1:], [image], axis=1)
-                    vel = vel.reshape(1, -1)
-                    next_state = [history, vel]
+                    action, policy, Qmax = agent.get_action(state, False)
+                    observe, reward, done, info = env.step(action, goal)
+
+                    next_state = np.append(goal, observe, 1)
+                    next_state = np.reshape(next_state, [-1])
+                    history = np.append(history[1:, :], next_state,axis=0)
+                    next_state = history
+
                     # stats
                     avgQ += float(Qmax)
                     score += reward
-                    if info['Y'] > bestY:
-                        bestY = info['Y']
-                    print('%s' % (ACTION[action]), end='\r', flush=True)
 
                     if args.verbose:
                         print('Step %d Action %s Reward %.2f Info %s:' % (timestep, real_action, reward, info['status']))
@@ -292,7 +284,7 @@ if __name__ == '__main__':
                 break
     else:
         # Train
-        time_limit = 600
+        time_limit = 60
         highscoreY = 0.
         if os.path.exists('save_stat/'+ agent_name + '_stat.csv'):
             with open('save_stat/'+ agent_name + '_stat.csv', 'r') as f:
@@ -307,27 +299,30 @@ if __name__ == '__main__':
                 print('Best Y:', highscoreY)
         global_step = 0
         global_train_num = 0
+
         while True:
             try:
+                
+                goal = np.zeros([4,6])
+                goal[0][1] = 1
+                goal[1][2] = 1
+                goal[1][3] = 1
+                goal[2][2] = 1  #2 behind
+                goal[3][3] = 1  #3 right
+
                 done = False
                 bug = False
 
                 # stats
-                bestY, timestep, score, avgQ = 0., 0, 0., 0.
+                timestep, score, avgQ = 0, 0., 0.
                 train_num, loss = 0, 0.
 
                 observe = env.reset()
-                # image, vel = observe
-                # try:
-                #     image = transform_input(image, args.img_height, args.img_width)
-                # except:
-                #     continue
-                observe = np.concatenate(observe).reshape(-1)
 
-                # history = np.stack([observe] * args.seqsize, axis=1)
-                # history = observe
-                # state = [history]
-                state = observe
+                state = np.append(goal, observe, 1)
+                state = np.reshape(state, [-1])
+                history = np.tile(state,[args.seqsize,1])
+                state = history
                 while not done and timestep < time_limit:
                     timestep += 1
                     global_step += 1
@@ -342,25 +337,24 @@ if __name__ == '__main__':
                         update_target_model(agent, agent_target)
                         global_train_num = 0
 
-                    action, policy, Qmax = agent.get_action(state)
-                    # real_action = interpret_action(action)
-                    observe, reward, done, info = env.step(action)
-                    observe = np.concatenate(observe).reshape(-1)
+                    action, policy, Qmax = agent.get_action(state, True)
+                    observe, reward, done, info = env.step(action, goal)
+
+                    if timestep % 5:
+                        print(reward, observe[:,-1])
                     
                     # history = np.append(history[:, 1:], [observe], axis=1)
 
                     # next_state = [history]
-                    next_state = observe
+                    next_state = np.append(goal, observe, 1)
+                    next_state = np.reshape(next_state, [1,-1])
+                    history = np.append(history[1:, :], next_state,axis=0)
+                    next_state = history
                     agent.append_memory(state, action, reward, next_state, done)
 
                     # stats
                     avgQ += float(Qmax)
                     score += reward
-                    # if info['Y'] > bestY:
-                    #     bestY = info['Y']
-
-                    # print('%s | %s' % (ACTION[action], ACTION[policy]), end='\r', flush=True)
-
 
                     if args.verbose:
                         print('Step %d Action %s Reward %.2f Info %s:' % (timestep, real_action, reward, info['status']))
@@ -376,10 +370,6 @@ if __name__ == '__main__':
                     loss /= train_num
                 avgQ /= timestep
 
-                # done
-                # if args.verbose or episode % 10 == 0:
-                #     # print('Ep %d: BestY %.3f Step %d Score %.2f AvgQ %.2f'
-                #     #         % (episode, bestY, timestep, score, avgQ))
                 stats = [
                     episode, timestep, score, \
                     loss, avgQ
