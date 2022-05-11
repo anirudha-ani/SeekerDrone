@@ -22,6 +22,8 @@ class Env:
         self.client.confirmConnection()
         self.startingpose = self.client.simGetVehiclePose()
 
+        print("Starting pose = ", self.startingpose)
+
         with open("yolov3.txt", 'r') as f:
             self.classes = [line.strip() for line in f.readlines()]
         self.net = cv2.dnn.readNet("yolov3.weights", "yolov3.cfg")
@@ -61,16 +63,17 @@ class Env:
         # observation = [responses, quad_vel]
         # observation, Width, Height = self.detect_image()
         state = self.get_state()
-        return state.flatten()
+        current_pose = self.client.simGetVehiclePose()
+        return np.append(state.flatten(), [current_pose.orientation.x_val, current_pose.orientation.y_val, current_pose.orientation.z_val])
 
     def take_action(self, action):
         if action == 0:#w
             self.client.moveByVelocityBodyFrameAsync(1, 0, 0, 1).join()
         elif action == 1:#a
             self.client.rotateByYawRateAsync(-20,1).join()
-        elif action == 2:#s
-            self.client.moveByVelocityBodyFrameAsync(-1, 0, 0, 1).join()
-        elif action == 3:#d
+        # elif action == 2:#s
+        #     self.client.moveByVelocityBodyFrameAsync(-1, 0, 0, 1).join()
+        elif action == 2:#d
             self.client.rotateByYawRateAsync(20,1).join()
         # elif action == 4:#u
         #     self.client.moveByVelocityBodyFrameAsync(0, 0, -1, 1).join()
@@ -128,7 +131,8 @@ class Env:
         # quad_vel = np.array([quad_vel.x_val, quad_vel.y_val, quad_vel.z_val])
         # observation = [responses, quad_vel]
         # return observation, reward, done, info
-        return state.flatten(), reward, done, info
+        current_pose = self.client.simGetVehiclePose()
+        return np.append(state.flatten(), [current_pose.orientation.x_val, current_pose.orientation.y_val, current_pose.orientation.z_val]), reward, done, info
         
     def disconnect(self):
         self.client.enableApiControl(False)
@@ -144,10 +148,10 @@ class Env:
 
     def get_state(self):
         state = np.array([
-            [0, -100, -100, 0, 0, 0],           #stop
-            [5, -100, -100, 0, 0, 0],           #Dog
-            [1, -100, -100, 0, 0, 0],           #Car
-            [4, -100, -100, 0, 0, 0]], np.float32)#Person
+            [0, 0, 0, 0, 0, 0],           #stop
+            [5, 0, 0, 0, 0, 0],           #Dog
+            [1, 0, 0, 0, 0, 0],           #Car
+            [4, 0, 0, 0, 0, 0]], np.float32)#Person
 
         responses = self.client.simGetImages([
             airsim.ImageRequest("0", airsim.ImageType.Scene)])

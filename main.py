@@ -95,7 +95,7 @@ def generate_trajectory(env, model):
     state = env.reset()
     done = False
     step_count = 0
-    while not done and step_count<10:
+    while not done and step_count<20:
         # TODO:
         # 1) use model to generate probability distribution over next actions
         # 2) sample from this distribution to pick the next action
@@ -109,7 +109,7 @@ def generate_trajectory(env, model):
         states.append(state)
         actions.append(action)
         state, rwd, done, _ = env.step(action)
-        print("State = ", np.reshape(state,(4,6)))
+        print("State = ", np.reshape(state[:-3],(4,6)))
         print("Reward = ", rwd)
         rewards.append(rwd)
         step_count += 1
@@ -158,7 +158,7 @@ def main():
     # env = gym.make("CartPole-v1")
     env = Env()
     state_size = 24
-    num_actions = 4
+    num_actions = 3
 
     # Initialize model
     # if sys.argv[1] == "REINFORCE":
