@@ -68,7 +68,7 @@ def discount(rewards, discount_factor=.99):
     :param discount_factor: Gamma discounting factor to use, defaults to .99
     :returns: discounted_rewards: list containing the discounted rewards for each timestep in the original rewards list
     """
-    # TODO: Compute discounted rewards
+    #   Compute discounted rewards
     discounted_rewards = []
     for reward in rewards: 
         discounted_rewards.append(reward)
@@ -96,7 +96,6 @@ def generate_trajectory(env, model):
     done = False
     step_count = 0
     while not done and step_count<10:
-        # TODO:
         # 1) use model to generate probability distribution over next actions
         # 2) sample from this distribution to pick the next action
 
@@ -130,7 +129,6 @@ def train(env, model):
     :returns: The total reward for the episode
     """
 
-    # TODO:
     # 1) Use generate trajectory to run an episode and get states, actions, and rewards.
     # 2) Compute discounted rewards.
     # 3) Compute the loss from the model and run backpropagation on the model.
@@ -150,27 +148,11 @@ def train(env, model):
 
 
 def main():
-    # if len(sys.argv) != 2 or sys.argv[1] not in {"REINFORCE", "REINFORCE_BASELINE"}:
-    #     print("USAGE: python assignment.py <Model Type>")
-    #     print("<Model Type>: [REINFORCE/REINFORCE_BASELINE]")
-    #     exit()
-
-    # env = gym.make("CartPole-v1")
     env = Env()
     state_size = 24
     num_actions = 4
-
-    # Initialize model
-    # if sys.argv[1] == "REINFORCE":
-    #     print("X")
-    #     # model = Reinforce(state_size, num_actions)
-    # elif sys.argv[1] == "REINFORCE_BASELINE":
     model = ReinforceWithBaseline(state_size, num_actions)
 
-    # TODO:
-    # 1) Train your model for 650 episodes, passing in the environment and the agent.
-    # 2) Append the total reward of the episode into a list keeping track of all of the rewards.
-    # 3) After training, print the average of the last 50 rewards you've collected.
     no_of_episode = 650
     total_reward = []
     for episode in range(no_of_episode):
@@ -181,7 +163,7 @@ def main():
     average_of_last_50 = sum(total_reward[-50:]) / 50 
 
     print("Average reward of last 50 epsiode = ", average_of_last_50)
-    # TODO: Visualize your rewards.
+    #   Visualize your rewards.
     visualize_data(total_reward)
     visualize_episode(env,model)
 
