@@ -6,10 +6,6 @@ import tensorflow as tf
 # Killing optional CPU driver warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-# DO NOT ALTER MODEL CLASS OUTSIDE OF TODOs. OTHERWISE, YOU RISK INCOMPATIBILITY
-# WITH THE AUTOGRADER AND RECEIVING A LOWER GRADE.
-
-
 class ReinforceWithBaseline(tf.keras.Model):
     def __init__(self, state_size, num_actions):
         """
