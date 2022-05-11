@@ -26,7 +26,7 @@ class ReinforceWithBaseline(tf.keras.Model):
         super(ReinforceWithBaseline, self).__init__()
         self.num_actions = num_actions
 
-        # TODO: Define actor network parameters, critic network parameters, and optimizer
+        #  actor network parameters, critic network parameters, and optimizer
         self.learning_rate = 0.001
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.learning_rate)
         
@@ -51,7 +51,7 @@ class ReinforceWithBaseline(tf.keras.Model):
         :return: A [episode_length,num_actions] matrix representing the probability distribution over actions
         for each state in the episode
         """
-        # TODO: implement this!
+        
         first_layer_output = self.linear1_actor(states)
         prediction_over_actions = self.linear2_actor(first_layer_output)
 
@@ -66,7 +66,7 @@ class ReinforceWithBaseline(tf.keras.Model):
         of an episode.
         :return: A [episode_length] matrix representing the value of each state.
         """
-        # TODO: implement this :D
+       
         first_layer_output = self.linear1_critic(states)
         baseline_value_of_state = self.linear2_critic(first_layer_output)
 
@@ -91,8 +91,8 @@ class ReinforceWithBaseline(tf.keras.Model):
         :param discounted_rewards: Discounted rewards throughout a complete episode (represented as an [episode_length] array)
         :return: loss, a TensorFlow scalar
         """
-        # TODO: implement this :)
-        # Hint: use tf.gather_nd (https://www.tensorflow.org/api_docs/python/tf/gather_nd) to get the probabilities of the actions taken by the model
+        
+        # tf.gather_nd (https://www.tensorflow.org/api_docs/python/tf/gather_nd) to get the probabilities of the actions taken by the model
          #Getting the probability distribution of action given state
         probaibility_distribution_of_action_over_states = self.call(states)
 
