@@ -7,11 +7,7 @@ import cv2
 
 clockspeed = 1
 timeslice = 0.5 / clockspeed
-goalY = 57
-outY = -0.5
-floorZ = 1.18
-goals = [7, 17, 27.5, 45, goalY]
-speed_limit = 0.2
+
 
 conf_threshold = 0.5
 
@@ -28,7 +24,6 @@ class Env:
             self.classes = [line.strip() for line in f.readlines()]
         self.net = cv2.dnn.readNet("yolov3.weights", "yolov3.cfg")
 
-        self.goal = config.goal
         self.init_pos = self.client.getMultirotorState().kinematics_estimated.position
         self.COLORS = np.random.uniform(0, 255, size=(len(self.classes), 3))
 
@@ -56,6 +51,7 @@ class Env:
         self.client.moveByVelocityAsync(0, 0, -1, 2 * timeslice).join()
         self.client.moveByVelocityAsync(0, 0, 0, 0.1 * timeslice).join()
         self.client.hoverAsync().join()
+        # self.client.moveByVelocityBodyFrameAsync(0, 0, -0.3, 1).join()
         self.client.simPause(True)
         # quad_vel = self.client.getMultirotorState().kinematics_estimated.linear_velocity
         # responses = self.client.simGetImages([airsim.ImageRequest(1, airsim.ImageType.DepthVis, True)])
@@ -80,7 +76,8 @@ class Env:
         # elif action == 5:#j
         #     self.client.moveByVelocityBodyFrameAsync(0, 0, 1, 1).join()
 
-    def step(self, action):
+
+    def step(self, action, goal):
         # move with given velocity
         self.client.simPause(False)
 
@@ -124,9 +121,10 @@ class Env:
         # log info
         info = {}
 
-        if has_collided:
-            info['status'] = 'collision'
+        # if has_collided:
+        #     info['status'] = 'collision'
         
+        return detected, reward, done, info
 
         # quad_vel = np.array([quad_vel.x_val, quad_vel.y_val, quad_vel.z_val])
         # observation = [responses, quad_vel]
@@ -157,14 +155,14 @@ class Env:
             airsim.ImageRequest("0", airsim.ImageType.Scene)])
 
         response = responses[0]
-        # image = np.fromstring(response.image_data_uint8, dtype=np.uint8)
-        # img_rgb = image.reshape(response.height, response.width, 3)
-        # image = np.flipud(img_rgb)
-        # cv2.imshow("object detection", image)
-        # cv2.waitKey()
 
         airsim.write_file(os.path.normpath('tmp.png'), response.image_data_uint8)
         image = cv2.imread("tmp.png")
+
+        if image is None:
+            detected = np.zeros([4,5])
+            # detected[:,0:2] = -100
+            return detected
 
         Width = image.shape[1]
         Height = image.shape[0]
@@ -175,10 +173,7 @@ class Env:
         # net = cv2.dnn.readNet("yolov3.weights", "yolov3.cfg")
         self.net.setInput(blob)
         layer_names = self.net.getLayerNames()
-        outs = self.net.forward([layer_names[i - 1] for i in self.net.getUnconnectedOutLayers()])
-        # net.setInput(blob)
-        # layer_names = net.getLayerNames()
-        # outs = net.forward([layer_names[i - 1] for i in net.getUnconnectedOutLayers()])
+        observation = self.net.forward([layer_names[i - 1] for i in self.net.getUnconnectedOutLayers()])
 
         class_ids = []
         confidences = []

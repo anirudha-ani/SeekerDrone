@@ -1,7 +1,7 @@
 reward = {
-    'dead': -2.0,
-    'goal': 2.0,
+	'dead': -1.0,
+    'goal': 100.0,
+    'subgoal': 1.0
 }
 
-goal = [14,16] # 16:dog, 14:bird, 17:hourse just for testing
-rang = 300
+rang = 100
