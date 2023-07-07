@@ -10,4 +10,5 @@ Overall, this project offers a unique and effective solution to the challenges f
 
 
 ## Architecture 
-<img width="723" alt="Screenshot 2023-07-07 at 3 35 15 PM" src="https://github.com/anirudha-ani/SeekerDrone/assets/13461833/9ac089ff-807d-4d5f-815f-96ed2db2a345">
+
+<img width="1440" alt="Screenshot 2023-07-07 at 3 37 21 PM" src="https://github.com/anirudha-ani/SeekerDrone/assets/13461833/d6d70215-bdf9-4a00-80e7-a226d33b88f1">
